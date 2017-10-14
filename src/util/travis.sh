@@ -117,10 +117,8 @@ fi
 
 
 
-# Pin Lwt, install dependencies, and then install Lwt. Lwt is installed
-# separately because we want to keep the build directory for running the tests.
+# Pin Lwt, and install its dependencies.
 opam pin add -y --no-action lwt .
-
 opam install -y --deps-only lwt
 
 if [ "$HAVE_CAMLP4" != no ]
@@ -133,26 +131,15 @@ then
     opam install -y conf-libev
 fi
 
-opam install --keep-build-dir --verbose lwt
+# Pin additional packages and install their dependencies.
 
-# Pin additional packages and install them. There
-# aren't any specific tests for these packages. Installation itself is the only
-# test.
-install_extra_package () {
-    PACKAGE=$1
-    opam pin add -y --no-action lwt_$PACKAGE .
-    opam install -y --verbose lwt_$PACKAGE
-}
+# Install dependencies of extra packages. We don't do this by pinning them and
+# using opam install --deps-only, because that will cause package lwt to be
+# installed.
 
-install_extra_package react
-install_extra_package ssl
-install_extra_package glib
+opam install -y react ssl conf-glib-2 conf-pkg-config
 
-# Build and run the tests.
-opam install -y ounit
-cd `opam config var lib`/../build/lwt.*
-make clean
-
+# Build Lwt and extra packages.
 if [ "$LIBEV" != no ]
 then
     LIBEV_FLAG=true
@@ -168,11 +155,18 @@ else
 fi
 
 ocaml src/util/configure.ml -use-libev $LIBEV_FLAG -use-camlp4 $CAMLP4_FLAG
-make build-all test-all
+make build-all
+
+# Run tests.
+make test-all
+
+# Clean for installation and packaging tests.
+make clean
 
 
 
 # Run the packaging tests.
+make install-for-packaging-test
 make packaging-test
 
 
