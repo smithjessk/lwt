@@ -334,29 +334,6 @@ let mapper =
             "Lwt's finally should be used only with the syntax: \"(<expr>)[%%finally ...]\"."
         ))
 
-      | [%expr [%e? lhs] >> [%e? rhs]] as e ->
-        if !sequence then
-          let pat = if !strict_seq then [%pat? ()] else [%pat? _] in
-          let lhs, rhs = mapper.expr mapper lhs, mapper.expr mapper rhs in
-          let op = match e.Parsetree.pexp_desc with
-            | Parsetree.Pexp_apply (op, _) -> op
-            | _ -> assert false
-          in
-          if !debug then
-            Ast_helper.Exp.attr
-              [%expr Lwt.backtrace_bind (fun exn -> try raise exn with exn -> exn)
-                                        [%e lhs]
-                                        (fun [%p pat] -> [%e rhs])
-              ]
-              (Ast_mapper.attribute_of_warning op.Parsetree.pexp_loc
-                "The operator >> is deprecated")
-          else
-            Ast_helper.Exp.attr
-              [%expr (Lwt.bind [%e lhs] (fun [%p pat] -> [%e rhs]))]
-              (Ast_mapper.attribute_of_warning op.Parsetree.pexp_loc
-                "The operator >> is deprecated")
-        else
-          default_mapper.expr mapper expr
       | { pexp_desc = Pexp_apply (fn, args); pexp_attributes; pexp_loc } when !log ->
         default_loc := pexp_loc;
         lwt_log mapper fn args pexp_attributes pexp_loc
@@ -385,8 +362,8 @@ let args =
     "-no-debug", Clear debug, "disable debug mode";
     "-log", Set log, "enable logging";
     "-no-log", Clear log, "disable logging";
-    "-no-sequence", Clear sequence, "disable sequence operator";
-    "-no-strict-sequence", Clear strict_seq, "allow non-unit sequence operations";
+    "-no-sequence", Clear sequence, "deprecated; has no effect";
+    "-no-strict-sequence", Clear strict_seq, "deprecated; has no effect";
   ])
 
 let () =
