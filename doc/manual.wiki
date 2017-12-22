@@ -48,17 +48,7 @@
 == The Lwt core library ==
 
   In this section we describe the basics of {{{Lwt}}}. It is advised to
-  start an ocaml toplevel and try the given code examples. To start,
-  launch {{{ocaml}}} in a terminal or in emacs with the tuareg
-  mode, and type:
-
-{{{
-# #use "topfind";;
-# #require "lwt.simple-top";;
-}}}
-
-  {{{lwt.simple-top}}} makes sure {{{Lwt}}} threads can run while
-  using the toplevel. You do not need it if you are using {{{utop}}}.
+  start {{{utop}}} and try the given code examples.
 
 === Lwt concepts ===
 
