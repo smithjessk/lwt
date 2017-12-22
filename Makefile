@@ -18,7 +18,7 @@ build-all: check-config
 # run unit tests for package lwt
 .PHONY: test
 test: build
-	jbuilder runtest --dev --only-packages lwt -j 1 --no-buffer
+	jbuilder runtest --dev -j 1 --no-buffer
 
 # run all unit tests
 .PHONY: test-all

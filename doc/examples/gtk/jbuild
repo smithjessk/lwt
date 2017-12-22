@@ -3,4 +3,4 @@
 (executable
  ((name connect)
   (libraries (lwt.unix lwt_glib threads lablgtk2))
-  (preprocess (pps (lwt.ppx)))))
+  (preprocess (pps (lwt_ppx)))))
