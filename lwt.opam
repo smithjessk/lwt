@@ -39,7 +39,6 @@ depends: [
 depopts: [
   "base-threads"
   "base-unix"
-  "camlp4"
   "conf-libev"
 ]
 # In practice, Lwt requires OCaml >= 4.02.3, as that is a constraint of the

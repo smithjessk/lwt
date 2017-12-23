@@ -35,7 +35,7 @@ check-config:
 
 .PHONY: default-config
 default-config:
-	ocaml src/util/configure.ml -use-libev false -use-camlp4 false
+	ocaml src/util/configure.ml -use-libev false
 
 # Use jbuilder/odoc to generate static html documentation.
 # Currenty requires ocaml 4.03.0 to install odoc.
