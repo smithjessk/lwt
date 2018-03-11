@@ -710,6 +710,24 @@ let lwt_preemptive_tests = [
   end;
 ]
 
+let test_io_stream_equality lwt_fd unix_fd =
+  (fun () ->
+    let fd = Lwt_unix.unix_file_descr lwt_fd
+    in
+    Lwt.return (fd = unix_fd);
+  )
+
+let io_streams_tests = [
+  test "stdin_correctness"
+    (test_io_stream_equality Lwt_unix.stdin Unix.stdin);
+
+  test "stdout_correctness"
+    (test_io_stream_equality Lwt_unix.stdout Unix.stdout);
+
+  test "stderr_correctness"
+    (test_io_stream_equality Lwt_unix.stderr Unix.stderr);
+]
+
 let suite =
   suite "lwt_unix"
     (openfile_tests @
@@ -719,5 +737,6 @@ let suite =
      writev_tests @
      bind_tests @
      dir_tests @
-     lwt_preemptive_tests
+     lwt_preemptive_tests @
+     io_streams_tests
     )
