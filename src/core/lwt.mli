@@ -410,7 +410,7 @@ type +'a t
     There is one exception to this: most promises can be {e canceled} by calling
     {!Lwt.cancel}, without going through a resolver. *)
 
-type 'a u
+type -'a u
 (** Resolvers for promises of type ['a ]{!Lwt.t}.
 
     Each resolver can be thought of as the {b write end} of one promise. It can
@@ -969,6 +969,9 @@ let () =
     promise [p] is also fulfilled, with the same value. Likewise, if the first
     promise in [ps] to become resolved is rejected, [p] is rejected with the
     same exception.
+
+    If [ps] has no promises (if it is the empty list), [Lwt.pick ps] returns a
+    promise that is pending forever, and cannot be canceled.
 
     It's possible for multiple promises in [ps] to become resolved
     simultaneously. This happens most often when some promises [ps] are already
@@ -1548,7 +1551,10 @@ let () =
     Using this mechanism is discouraged, because it is non-syntactic, and
     because it manipulates hidden state in module [Lwt]. It is recommended
     instead to pass additional values explicitly in tuples, or maintain explicit
-    associative maps for them. *)
+    associative maps for them.
+
+    [Lwt.with_value] should only be called in the main thread, i.e. do not call
+    it inside {!Lwt_preemptive.detach}. *)
 
 
 
@@ -1649,13 +1655,54 @@ val add_task_l : ('a u) Lwt_sequence.t -> 'a t
 
 
 
-(** {3 Pausing} *)
+(** {3 Yielding} *)
 
 val pause : unit -> unit t
-(** [Lwt.pause ()] creates a pending promise that is fulfilled the next time
-    {!Lwt.wakeup_paused} is called.
+(** [Lwt.pause ()] creates a pending promise that is fulfilled after Lwt
+    finishes calling all currently ready callbacks, i.e. it is fulfilled on the
+    next “tick.”
 
-    This function is intended for internal use by Lwt. *)
+    Putting the rest of your computation into a callback of [Lwt.pause ()]
+    creates a “yield” that gives other callbacks a chance to run first.
+
+    For example, to break up a long-running computation, allowing I/O to be
+    handled between chunks:
+
+{[
+let () =
+  let rec handle_io () =
+    let%lwt () = Lwt_io.printl "Handling I/O" in
+    let%lwt () = Lwt_unix.sleep 0.1 in
+    handle_io ()
+  in
+
+  let rec compute n =
+    if n = 0 then
+      Lwt.return ()
+    else
+      let%lwt () =
+        if n mod 1_000_000 = 0 then
+          Lwt.pause ()
+        else
+          Lwt.return ()
+      in
+      compute (n - 1)
+  in
+
+  Lwt.async handle_io;
+  Lwt_main.run (compute 100_000_000)
+
+(* ocamlfind opt -linkpkg -package lwt.ppx,lwt.unix code.ml && ./a.out *)
+]}
+
+  If you replace the call to [Lwt.pause] by [Lwt.return] in the program above,
+  ["Handling I/O"] is printed only once. With [Lwt.pause], it is printed several
+  times, depending on the speed of your machine.
+
+  An alternative way to handle long-running computations is to detach them to
+  preemptive threads using {!Lwt_preemptive}. *)
+
+(**/**)
 
 val wakeup_paused : unit -> unit
 (** [Lwt.wakeup_paused ()] fulfills all promises created with {!Lwt.pause} since
@@ -1679,6 +1726,8 @@ val register_pause_notifier : (int -> unit) -> unit
     internal reference cell available for this purpose.
 
     This function is intended for internal use by Lwt. *)
+
+(**/**)
 
 
 

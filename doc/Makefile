@@ -3,28 +3,20 @@ SRC=../src
 
 PKGS=\
 	-package bytes -package result \
-	-package bigarray -package unix -package camlp4 \
+	-package bigarray -package unix \
 	-package ocaml-migrate-parsetree -package ppx_tools_versioned \
 	-package react
 
 INCS=\
-	-I ${BLD}/camlp4 \
 	-I ${BLD}/core \
-	-I ${BLD}/logger \
 	-I ${BLD}/ppx \
-	-I ${BLD}/preemptive \
 	-I ${BLD}/react \
-	-I ${BLD}/simple_top \
 	-I ${BLD}/unix
 
 MLIS=\
-	$(wildcard ${SRC}/camlp4/*.mli) \
 	$(wildcard ${SRC}/core/*.mli) \
-	$(wildcard ${SRC}/logger/*.mli) \
 	$(wildcard ${SRC}/ppx/*.mli) \
-	$(wildcard ${SRC}/preemptive/*.mli) \
 	$(wildcard ${SRC}/react/*.mli) \
-	$(wildcard ${SRC}/simple_top/*.mli) \
 	$(filter-out ${BLD}/unix/lwt_unix.cppo.mli,$(wildcard ${BLD}/unix/*.mli))
 
 MLIS := $(filter-out %.pp.mli,$(MLIS))

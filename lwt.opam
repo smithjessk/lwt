@@ -16,10 +16,8 @@ license: "LGPL with OpenSSL linking exception"
 dev-repo: "https://github.com/ocsigen/lwt.git"
 
 build: [
-  [ "ocaml" "src/util/configure.ml" "-use-libev" "%{conf-libev:installed}%"
-                                    "-use-camlp4" "%{camlp4:installed}%" ]
+  [ "ocaml" "src/util/configure.ml" "-use-libev" "%{conf-libev:installed}%" ]
   [ "jbuilder" "build" "-p" name "-j" jobs ]
-  [ "ocaml" "src/util/install_filter.ml" ]
 ]
 build-test: [ [ "jbuilder" "runtest" "-p" name ] ]
 
@@ -28,7 +26,7 @@ depends: [
   # removed when preparing a release.
   "bisect_ppx" {>= "1.3.0"}
   "cppo" {build & >= "1.1.0"}
-  "jbuilder" {build & >= "1.0+beta13"}
+  "jbuilder" {build & >= "1.0+beta14"}
   # We are only using ocamlfind during configuration of the Unix binding.
   # However, ocamlfind also installs the "threads" package, and ocamlfind
   # 1.7.3-1 is the first one whose threads package does not have incorrect error
@@ -38,15 +36,12 @@ depends: [
   # dependency should be converted to a conflict, and package jbuilder should be
   # constrained such that it also includes the error lines fix.
   "ocamlfind" {build & >= "1.7.3-1"}
-  "ocaml-migrate-parsetree"
-  "ppx_tools_versioned"
   # result is needed as long as Lwt still supports OCaml 4.02.
   "result"
 ]
 depopts: [
   "base-threads"
   "base-unix"
-  "camlp4"
   "conf-libev"
 ]
 # In practice, Lwt requires OCaml >= 4.02.3, as that is a constraint of the

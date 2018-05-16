@@ -57,6 +57,16 @@ and t2 = do_something2 in
 bind t1 (fun x -> bind t2 (fun y -> code))
    ]}
 
+   Due to a {{:https://caml.inria.fr/mantis/view.php?id=7758} bug} in the OCaml
+   parser, if you'd like to put a type constraint on the variable, please write
+
+   {[
+let (foo : int) = do_something in
+code
+   ]}
+
+   Not using parentheses will confuse the OCaml parser.
+
    - exception catching:
 
    {[
@@ -179,49 +189,6 @@ else
 
    It allows to encode the old [raise_lwt <e>] as [[%lwt raise <e>]], and offers a convenient way to interact with non-Lwt code.
 
-   {2 Debug}
-
-   By default, the debug mode is enabled. This means that the [backtrace] versions of the [bind], [finalize] and [catch] functions are used, enabling proper backtraces for the Lwt exceptions.
-
-   The debug mode can be disabled with the option [-no-debug]:
-
-   {v
-
-$ ocamlfind ocamlc -package lwt.ppx \
-    -ppxopt lwt.ppx,-no-debug -linkpkg -o foo foo.ml
- v}
-
-   {2 Sequence}
-
-   With OCaml 4.04.0 and on a convenient syntax is available for sequencing Lwt
-   operations using [;%lwt].  This allows free mixing of standard [;]
-   sequencing and [;%lwt] sequencing without extra parentheses:
-   {[
-     let i = ref 0 in
-     write stdout "Hello, ";%lwt
-     incr i;
-     write stdout "world!"
-   ]}
-
-   It is also possible to sequence Lwt operations with the [>>] operator:
-   {[
-     write stdout "Hello, " >> write stdout "world!"
-   ]}
-
-   By default, each operation must return [unit Lwt.t]. This constraint can be
-   lifted with the option [-no-strict-sequence]. The operator can be disabled
-   with the option [-no-sequence].
-
-   If you are mixing `>>` and `;`, you need to use parentheses or `begin`/`end`
-   to get the result you expect:
-
-   {[
-     write stdout "Hello, " >> (ignore (); write stdout "world!")
-   ]}
-
-   Note that unlike [>>=], [>>] is not an OCaml value. it is a piece of syntax
-   added by the ppx rewriter - i.e., you cannot refer to [(>>)].
-
    {2 Logging}
 
    The logging syntax extension is enabled with [-log].
@@ -244,8 +211,6 @@ else
 
    - The application must be complete. For example: [Log.info "%d"]
    will make compilation fail.
-
-   - Debug messages are removed if the option [-no-debug] is passed.
 
 *)
 

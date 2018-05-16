@@ -183,7 +183,9 @@ val atomic : ('a channel -> 'b Lwt.t) -> ('a channel -> 'b Lwt.t)
       - [atomic] can be called inside another [atomic] *)
 
 val file_length : string -> int64 Lwt.t
-  (** Returns the length of a file *)
+(** Retrieves the length of the file at the given path. If the path refers to a
+    directory, the returned promise is rejected with
+    [Unix.(Unix_error (EISDIR, _, _))]. *)
 
 val buffered : 'a channel -> int
   (** [buffered oc] returns the number of bytes in the buffer *)
@@ -327,10 +329,12 @@ val write_from_exactly : output_channel -> bytes -> int -> int -> unit Lwt.t
   (** [write_from_exactly oc buffer offset length] writes all [length]
       bytes from [buffer] at offset [offset] to [oc] *)
 
-val write_from_string_exactly : output_channel -> string -> int -> int -> unit Lwt.t
+val write_from_string_exactly :
+  output_channel -> string -> int -> int -> unit Lwt.t
   (** See {!write_from_exactly}. *)
 
-val write_value : output_channel -> ?flags : Marshal.extern_flags list -> 'a -> unit Lwt.t
+val write_value :
+  output_channel -> ?flags : Marshal.extern_flags list -> 'a -> unit Lwt.t
 (** [write_value channel ?flags v] writes [v] to [channel] using the [Marshal]
     module of the standard library. See
     {{:https://caml.inria.fr/pub/docs/manual-ocaml/libref/Marshal.html#VALto_channel}
@@ -360,16 +364,34 @@ val write_value : output_channel -> ?flags : Marshal.extern_flags list -> 'a -> 
 
 val fprint : output_channel -> string -> unit Lwt.t
 val fprintl : output_channel -> string -> unit Lwt.t
+
 val fprintf : output_channel -> ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use [Lwt_io.flush channel]. *)
+
 val fprintlf : output_channel -> ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use [Lwt_io.flush channel]. *)
+
 val print : string -> unit Lwt.t
 val printl : string -> unit Lwt.t
+
 val printf : ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use
+    [Lwt_io.(flush stdout)]. *)
+
 val printlf : ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use
+    [Lwt_io.(flush stdout)]. *)
+
 val eprint : string -> unit Lwt.t
 val eprintl : string -> unit Lwt.t
+
 val eprintf : ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use
+    [Lwt_io.(flush stderr)]. *)
+
 val eprintlf : ('a, unit, string, unit Lwt.t) format4 -> 'a
+(** [%!] does nothing here. To flush the channel, use
+    [Lwt_io.(flush stderr)]. *)
 
 (** {2 Utilities} *)
 
@@ -649,7 +671,8 @@ type direct_access = {
   (** - for input channels:
         refills the buffer and returns how many bytes have been read
       - for output channels:
-        flush partially the buffer and returns how many bytes have been written *)
+        flush partially the buffer and returns how many bytes have been
+        written *)
 }
 
 val direct_access : 'a channel -> (direct_access -> 'b Lwt.t) -> 'b Lwt.t

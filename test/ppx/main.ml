@@ -155,22 +155,6 @@ let suite = suite "ppx" [
          return !x
     ) ;
 
-  test "sequence"
-    (fun () ->
-       let lst = ref [] in
-       (lst := 2 :: !lst; Lwt.return_unit) >>
-       (lst := 1 :: !lst; Lwt.return_unit) >>
-       (Lwt.return (!lst = [1;2]))
-    ) ;
-
-  test "log"
-    (fun () ->
-       Lwt_log.ign_debug "bar";
-       Lwt_log.debug "foo" >>= fun () ->
-       Lwt_log.info_f "baz" >>= fun () ->
-       return_true
-    ) ;
-
   test "structure let"
     (fun () ->
        let module M =

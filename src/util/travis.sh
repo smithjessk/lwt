@@ -36,10 +36,6 @@ packages_homebrew () {
     if [ "$COMPILER" = system ]
     then
         brew install ocaml
-        # The system compiler on Homebrew is now 4.06 or higher, and there is no
-        # system Camlp4 package compatible with that (at least not yet). See:
-        #   https://github.com/ocaml/opam-repository/pull/10455
-        HAVE_CAMLP4=no
     else
         DO_SWITCH=yes
     fi
@@ -66,7 +62,6 @@ packages_macports () {
 
     wget -q -O - https://aantron.github.io/binaries/macports/x86_64/opam/1.2/install.sh | bash
     wget -q -O - https://aantron.github.io/binaries/macports/x86_64/ocaml/$COMPILER/install.sh | bash
-    wget -q -O - https://aantron.github.io/binaries/macports/x86_64/camlp4/$COMPILER/install.sh | bash
 }
 
 packages_osx () {
@@ -95,7 +90,7 @@ case $COMPILER in
     4.03) OCAML_VERSION=4.03.0;;
     4.04) OCAML_VERSION=4.04.2;;
     4.05) OCAML_VERSION=4.05.0;;
-    4.06) OCAML_VERSION=4.06.0;;
+    4.06) OCAML_VERSION=4.06.1;;
     system) OCAML_VERSION=`ocamlc -version`;;
        *) echo Unsupported compiler $COMPILER; exit 1;;
 esac
@@ -124,47 +119,17 @@ fi
 
 
 
-# Pin Lwt, install dependencies, and then install Lwt. Lwt is installed
-# separately because we want to keep the build directory for running the tests.
-opam pin add -y --no-action lwt .
-
-opam install -y --deps-only lwt
-
-if [ "$HAVE_CAMLP4" != no ]
-then
-    opam install -y camlp4
-fi
+# Install Lwt's development dependencies.
+make dev-deps
 
 if [ "$LIBEV" != no ]
 then
     opam install -y conf-libev
 fi
 
-opam install --keep-build-dir --verbose lwt
 
-# Pin additional packages and install them. There
-# aren't any specific tests for these packages. Installation itself is the only
-# test.
-install_extra_package () {
-    PACKAGE=$1
-    opam pin add -y --no-action lwt_$PACKAGE .
-    opam install -y --verbose lwt_$PACKAGE
-}
-
-install_extra_package ppx
-install_extra_package react
-install_extra_package log
-
-if [ "$HAVE_CAMLP4" != no ]
-then
-    install_extra_package camlp4
-fi
 
 # Build and run the tests.
-opam install -y ounit
-cd `opam config var lib`/../build/lwt.*
-make clean
-
 if [ "$LIBEV" != no ]
 then
     LIBEV_FLAG=true
@@ -172,22 +137,22 @@ else
     LIBEV_FLAG=false
 fi
 
-ocaml src/util/configure.ml -use-libev $LIBEV_FLAG -use-camlp4 false
-make build-all test-all
+ocaml src/util/configure.ml -use-libev $LIBEV_FLAG
+make build
+make test
 make coverage
 
 
 
 # Run the packaging tests.
-if [ "$HAVE_CAMLP4" != no ]
-then
-    make packaging-test
-fi
+make clean
+make install-for-packaging-test
+make packaging-test
 
 
 
 # Some sanity checks.
-if [ "$LIBEV" != yes ]
+if [ "$LIBEV" == no ]
 then
     ! opam list -i conf-libev
 fi

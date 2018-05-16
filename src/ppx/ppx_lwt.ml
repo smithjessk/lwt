@@ -101,8 +101,13 @@ let gen_binds e_loc l e =
       in
       let new_exp =
         if !debug then
-          [%expr Lwt.backtrace_bind (fun exn -> try raise exn with exn -> exn)
-            [%e name] [%e fun_]] [@metaloc e_loc]
+          [%expr
+            let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+            Lwt.backtrace_bind
+              (fun exn -> try Reraise.reraise exn with exn -> exn)
+              [%e name]
+              [%e fun_]
+          ] [@metaloc e_loc]
         else
           [%expr Lwt.bind [%e name] [%e fun_]] [@metaloc e_loc]
       in
@@ -121,8 +126,13 @@ let gen_top_binds vbs =
     match vbs with
     | {pvb_expr; _}::_rest ->
       if !debug then
-        [%expr Lwt.backtrace_bind (fun exn -> try raise exn with exn -> exn)
-          [%e pvb_expr] (fun [%p pvar (gen_name i)] -> gen_exp _rest (i + 1))]
+        [%expr
+          let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+          Lwt.backtrace_bind
+            (fun exn -> try Reraise.reraise exn with exn -> exn)
+            [%e pvb_expr]
+            (fun [%p pvar (gen_name i)] -> gen_exp _rest (i + 1))
+        ]
       else
         [%expr Lwt.bind [%e pvb_expr] (fun [%p pvar (gen_name i)] -> gen_exp rest (i + 1))]
     | [] ->
@@ -136,8 +146,13 @@ let gen_top_binds vbs =
 let lwt_sequence mapper ~lhs ~rhs =
   let lhs, rhs = mapper.expr mapper lhs, mapper.expr mapper rhs in
   if !debug then
-    [%expr Lwt.backtrace_bind (fun exn -> try raise exn with exn -> exn)
-              [%e lhs] (fun () -> [%e rhs])]
+    [%expr
+      let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+      Lwt.backtrace_bind
+        (fun exn -> try Reraise.reraise exn with exn -> exn)
+        [%e lhs]
+        (fun () -> [%e rhs])
+    ] [@metaloc lhs.pexp_loc]
   else
     [%expr Lwt.bind [%e lhs] (fun () -> [%e rhs])]
 
@@ -246,8 +261,13 @@ let lwt_expression mapper exp attributes =
     let cases = add_wildcard_case cases in
     let new_exp =
       if !debug then
-        [%expr Lwt.backtrace_catch (fun exn -> try raise exn with exn -> exn)
-          (fun () -> [%e expr]) [%e Exp.function_ cases]]
+        [%expr
+          let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+          Lwt.backtrace_catch
+            (fun exn -> try Reraise.reraise exn with exn -> exn)
+            (fun () -> [%e expr])
+            [%e Exp.function_ cases]
+        ]
       else
         [%expr Lwt.catch (fun () -> [%e expr]) [%e Exp.function_ cases]]
     in
@@ -280,8 +300,13 @@ let lwt_expression mapper exp attributes =
     in
     let new_exp =
       if !debug then
-        [%expr Lwt.backtrace_catch (fun exn -> try raise exn with exn -> exn)
-          (fun () -> [%e exp]) Lwt.fail]
+        [%expr
+          let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+          Lwt.backtrace_catch
+            (fun exn -> try Reraise.reraise exn with exn -> exn)
+            (fun () -> [%e exp])
+            Lwt.fail
+        ]
       else
         [%expr Lwt.catch (fun () -> [%e exp]) Lwt.fail]
     in
@@ -398,9 +423,13 @@ let mapper =
       | [%expr [%e? exp ] [%lwt.finally [%e? finally]] ] ->
         let new_exp =
           if !debug then
-            [%expr Lwt.backtrace_finalize (fun exn -> try raise exn with exn -> exn)
-                                          (fun () -> [%e exp])
-                                          (fun () -> [%e finally])]
+            [%expr
+              let module Reraise = struct external reraise : exn -> 'a = "%reraise" end in
+              Lwt.backtrace_finalize
+                (fun exn -> try Reraise.reraise exn with exn -> exn)
+                (fun () -> [%e exp])
+                (fun () -> [%e finally])
+            ]
           else
             [%expr Lwt.finalize (fun () -> [%e exp]) (fun () -> [%e finally])]
         in
@@ -417,49 +446,26 @@ let mapper =
             "Lwt's finally should be used only with the syntax: \"(<expr>)[%%finally ...]\"."
         ))
 
-      | [%expr [%e? lhs] >> [%e? rhs]] as e ->
-        if !sequence then
-          let pat = if !strict_seq then [%pat? ()] else [%pat? _] in
-          let lhs, rhs = mapper.expr mapper lhs, mapper.expr mapper rhs in
-          let op = match e.Parsetree.pexp_desc with
-            | Parsetree.Pexp_apply (op, _) -> op
-            | _ -> assert false
-          in
-          if !debug then
-            Ast_helper.Exp.attr
-              [%expr Lwt.backtrace_bind (fun exn -> try raise exn with exn -> exn)
-                                        [%e lhs]
-                                        (fun [%p pat] -> [%e rhs])
-              ]
-              (Ast_mapper.attribute_of_warning op.Parsetree.pexp_loc
-                "The operator >> is deprecated")
-          else
-            Ast_helper.Exp.attr
-              [%expr (Lwt.bind [%e lhs] (fun [%p pat] -> [%e rhs]))]
-              (Ast_mapper.attribute_of_warning op.Parsetree.pexp_loc
-                "The operator >> is deprecated")
-        else
-          default_mapper.expr mapper expr
       | { pexp_desc = Pexp_apply (fn, args); pexp_attributes; pexp_loc } when !log ->
         default_loc := pexp_loc;
         lwt_log mapper fn args pexp_attributes pexp_loc
       | _ ->
         default_mapper.expr mapper expr);
-        structure_item = (fun mapper stri ->
-          default_loc := stri.pstr_loc;
-          match stri with
-          | [%stri let%lwt [%p? var] = [%e? exp]] ->
-            [%stri let [%p var] = Lwt_main.run [%e mapper.expr mapper exp]]
+    structure_item = (fun mapper stri ->
+      default_loc := stri.pstr_loc;
+      match stri with
+      | [%stri let%lwt [%p? var] = [%e? exp]] ->
+        [%stri let [%p var] = Lwt_main.run [%e mapper.expr mapper exp]]
 
-          | {pstr_desc = Pstr_extension (({txt = "lwt"; _}, PStr [
-            {pstr_desc = Pstr_value (Recursive, _); _}]) as content, attrs); pstr_loc} ->
-            {stri with pstr_desc =
-              Pstr_extension (content, warn_let_lwt_rec pstr_loc attrs)}
+      | {pstr_desc = Pstr_extension (({txt = "lwt"; _}, PStr [
+        {pstr_desc = Pstr_value (Recursive, _); _}]) as content, attrs); pstr_loc} ->
+        {stri with pstr_desc =
+          Pstr_extension (content, warn_let_lwt_rec pstr_loc attrs)}
 
-          | {pstr_desc = Pstr_extension (({txt = "lwt"; _}, PStr [
-            {pstr_desc = Pstr_value (Nonrecursive, vbs); _}]), _); _} ->
-            mapper.structure_item mapper (Str.value Nonrecursive (gen_top_binds vbs))
-          | x -> default_mapper.structure_item mapper x);
+      | {pstr_desc = Pstr_extension (({txt = "lwt"; _}, PStr [
+        {pstr_desc = Pstr_value (Nonrecursive, vbs); _}]), _); _} ->
+        mapper.structure_item mapper (Str.value Nonrecursive (gen_top_binds vbs))
+      | x -> default_mapper.structure_item mapper x);
 }
 
 
@@ -479,11 +485,11 @@ let args =
 
     "-no-sequence",
       Unit no_sequence_option,
-      " disable sequence operator (deprecated)";
+      " has no effect (deprecated)";
 
     "-no-strict-sequence",
       Unit no_strict_sequence_option,
-      " allow non-unit sequence operations (deprecated)";
+      " has no effect (deprecated)";
   ])
 
 let () =
